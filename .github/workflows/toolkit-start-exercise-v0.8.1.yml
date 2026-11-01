@@ -50,6 +50,10 @@ jobs:
           # Find all workflow files that start with a number (0-9)
           workflows=$(git ls-files | grep -E '^\.github/workflows/[0-9].*\.(yml|yaml)$')
           for workflow in $workflows; do
+            # Keep the entry workflow available until the caller finishes setup.
+            if [[ "$workflow" == ".github/workflows/0-start-exercise.yml" ]]; then
+              continue
+            fi
             workflow_name="$(basename "$workflow")"
             echo "Disabling workflow: $workflow_name"
             state="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_name" --jq '.state')"
@@ -89,7 +93,7 @@ jobs:
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: true # Required only for the following README commit and push.
+          persist-credentials: false # Read-only templates never need push credentials.
           repository: skills/exercise-toolkit
           path: exercise-toolkit
           ref: ${{ env.EXERCISE_TOOLKIT_REF }}
@@ -146,9 +150,9 @@ jobs:
         with:
           template-file: exercise-toolkit/markdown-templates/step-feedback/welcome.md
           template-vars: |
-            title: ${{ inputs.exercise-title }}
+            title: ${{ toJSON(inputs.exercise-title) }}
             login: ${{ github.actor }}
-            intro_message: ${{ inputs.intro-message }}
+            intro_message: ${{ toJSON(inputs.intro-message) }}
             bug_report_url: ${{ steps.get-template-repo.outputs.ISSUE_REPORT_URL || '' }}
 
       - name: Create issue - add welcome message
@@ -176,7 +180,7 @@ jobs:
         with:
           template-file: exercise-toolkit/markdown-templates/readme/exercise-started.md
           template-vars: |
-            title: ${{ inputs.exercise-title }}
+            title: ${{ toJSON(inputs.exercise-title) }}
             login: ${{ github.actor }}
             issue_url: ${{ steps.create-issue.outputs.ISSUE_URL }}
 
