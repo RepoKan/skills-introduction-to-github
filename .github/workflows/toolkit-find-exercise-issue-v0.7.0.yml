@@ -40,20 +40,20 @@ jobs:
           ISSUE_TITLE_PREFIX: ${{ inputs.issue-title-text }}
         with:
           script: |
-            const response = await github.rest.issues.listForRepo({
+            const response = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'all',
               sort: 'created',    // Sort by creation date
               direction: 'desc',  // Newest first (descending order)
-              per_page: 50
+              per_page: 100
             });
 
             // Get just the issues, not pull requests
-            const issues = response.data.filter(item => !item.pull_request);
+            const issues = response.filter(item => !item.pull_request);
 
             // Start a collapsible group in the logs
-            core.startGroup(`Found ${issues.length} open issues in total`);
+            core.startGroup(`Found ${issues.length} issues in total`);
             issues.forEach(issue => {
               core.info(`#${issue.number}: ${issue.html_url}`);
             });
