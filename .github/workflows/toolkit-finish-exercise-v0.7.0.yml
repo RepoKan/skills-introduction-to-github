@@ -44,7 +44,7 @@ jobs:
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: true # Required only for the following README commit and push.
+          persist-credentials: false # Read-only templates never need push credentials.
           repository: skills/exercise-toolkit
           path: exercise-toolkit
           ref: ${{ env.EXERCISE_TOOLKIT_REF }}
@@ -56,8 +56,8 @@ jobs:
           template-file: exercise-toolkit/markdown-templates/readme/exercise-finished.md
           template-vars: |
             login: ${{ github.actor }}
-            issue_url: ${{ inputs.issue-url }}
-            exercise_title: ${{ inputs.exercise-title }}
+            issue_url: ${{ toJSON(inputs.issue-url) }}
+            exercise_title: ${{ toJSON(inputs.exercise-title) }}
             repository_url: https://github.com/${{ github.repository }}
 
       - name: Overwrite README
