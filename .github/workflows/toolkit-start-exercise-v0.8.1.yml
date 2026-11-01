@@ -123,6 +123,8 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           STEP_FILES_GLOB: .github/steps/*.md
+          EXERCISE_REPOSITORY: ${{ github.repository }}
+          EXERCISE_REF_NAME: ${{ github.ref_name }}
         with:
           script: |
             const fs = require('fs');
@@ -136,7 +138,7 @@ jobs:
               // Replace ../images/* links with GitHub blob URLs suffixed with ?raw=true.
               const updatedContent = content.replace(
                 /\.\.\/images\/([^\s)"']+)/g,
-                'https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/.github/images/$1?raw=true'
+                `https://github.com/${process.env.EXERCISE_REPOSITORY}/blob/${encodeURIComponent(process.env.EXERCISE_REF_NAME)}/.github/images/$1?raw=true`
               );
 
               if (content !== updatedContent) {
