@@ -12,22 +12,26 @@ on:
       - closed
 
 permissions:
-  contents: write
-  actions: write
-  issues: write
+  contents: read # Default checkout access; writes are scoped per job.
 
 env:
   REVIEW_FILE: ".github/steps/x-review.md"
 
 jobs:
   find_exercise:
+    permissions:
+      issues: read # Find the exercise issue.
     name: Find Exercise Issue
-    uses: skills/exercise-toolkit/.github/workflows/find-exercise-issue.yml@v0.5.0
+    uses: ./.github/workflows/toolkit-find-exercise-issue-v0.5.0.yml
 
   post_review_content:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
+      actions: write # Manage the next exercise workflow.
     name: Post review content
     needs: [find_exercise]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: |
       !github.event.repository.is_template
     env:
@@ -36,24 +40,26 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Get response templates
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - name: Get response templates
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
           repository: skills/exercise-toolkit
           path: exercise-toolkit
-          ref: v0.7.0
+          ref: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1 # exercise-toolkit v0.9.3
 
       - name: Create comment - step finished
-        uses: GrantBirki/comment@v2.1.1
+        uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3
         with:
           repository: ${{ env.ISSUE_REPOSITORY }}
           issue-number: ${{ env.ISSUE_NUMBER }}
           file: exercise-toolkit/markdown-templates/step-feedback/lesson-review.md
 
       - name: Create comment - add review content
-        uses: GrantBirki/comment@v2.1.1
+        uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3
         with:
           repository: ${{ env.ISSUE_REPOSITORY }}
           issue-number: ${{ env.ISSUE_NUMBER }}
@@ -65,9 +71,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   finish_exercise:
+    permissions:
+      contents: write # Allow the reusable finish job to update README.
+      issues: write # Allow closing the exercise issue.
     name: Finish Exercise
     needs: [find_exercise, post_review_content]
-    uses: skills/exercise-toolkit/.github/workflows/finish-exercise.yml@v0.7.0
+    uses: ./.github/workflows/toolkit-finish-exercise-v0.7.0.yml
     with:
       issue-url: ${{ needs.find_exercise.outputs.issue-url }}
       exercise-title: "Introduction to GitHub"

@@ -16,24 +16,27 @@ on:
       - edited
 
 permissions:
-  contents: read
-  actions: write
-  issues: write
+  contents: read # Default checkout access; writes are scoped per job.
 
 env:
   STEP_4_FILE: ".github/steps/4-merge-your-pull-request.md"
 
 jobs:
   find_exercise:
+    permissions:
+      issues: read # Find the exercise issue.
     if: |
       !github.event.repository.is_template &&
       github.head_ref == 'my-first-branch'
     name: Find Exercise Issue
-    uses: skills/exercise-toolkit/.github/workflows/find-exercise-issue.yml@v0.7.0
+    uses: ./.github/workflows/toolkit-find-exercise-issue-v0.7.0.yml
 
   check_step_work:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
     name: Check step work
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: find_exercise
     env:
       ISSUE_REPOSITORY: ${{ github.repository }}
@@ -41,25 +44,27 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Get response templates
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - name: Get response templates
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
           repository: skills/exercise-toolkit
           path: exercise-toolkit
-          ref: v0.7.0
+          ref: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1 # exercise-toolkit v0.9.3
 
       - name: Find last comment
         id: find-last-comment
-        uses: peter-evans/find-comment@v3
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
         with:
           repository: ${{ env.ISSUE_REPOSITORY }}
           issue-number: ${{ env.ISSUE_NUMBER }}
           direction: last
 
       - name: Update comment - checking work
-        uses: GrantBirki/comment@v2.1.1
+        uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3
         with:
           repository: ${{ env.ISSUE_REPOSITORY }}
           issue-number: ${{ env.ISSUE_NUMBER }}
@@ -72,7 +77,7 @@ jobs:
       - name: Check PR title for keyphrase
         id: check-pr-title
         continue-on-error: true
-        uses: skills/action-keyphrase-checker@v1
+        uses: skills/action-keyphrase-checker@4771c016e1a66082db6bff148136b82689f7bd84 # v2.0.0
         with:
           keyphrase: "Add my first file"
           text: ${{ github.event.pull_request.title }}
@@ -83,23 +88,20 @@ jobs:
         continue-on-error: true
         run: |
           if [ -n "$PR_BODY" ]; then
-            echo "STEP_MESSAGE=Pull request description" >> $GITHUB_OUTPUT
+            echo "STEP_MESSAGE=Pull request description" >> "$GITHUB_OUTPUT"
           else
-            echo "STEP_MESSAGE=Pull request description is empty" >> $GITHUB_OUTPUT
+            echo "STEP_MESSAGE=Pull request description is empty" >> "$GITHUB_OUTPUT"
             exit 1
           fi
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
 
-      - name: Update comment - step results
-        uses: GrantBirki/comment@v2.1.1
+      - name: Render step results
+        id: render-step-results
+        uses: skills/action-text-variables@d277ce34621ab00a53db0517d18304a7032453c5 # v4.0.1
         with:
-          repository: ${{ env.ISSUE_REPOSITORY }}
-          issue-number: ${{ env.ISSUE_NUMBER }}
-          comment-id: ${{ steps.find-last-comment.outputs.comment-id }}
-          file: exercise-toolkit/markdown-templates/step-feedback/step-results-table.md
-          edit-mode: replace
-          vars: |
+          template-file: exercise-toolkit/markdown-templates/step-feedback/step-results-table.md
+          template-vars: |
             step_number: 3
             results_table:
               - description: "Pull Request title matches"
@@ -107,31 +109,46 @@ jobs:
               - description: ${{ steps.check-pr-description.outputs.STEP_MESSAGE }}
                 passed: ${{ steps.check-pr-description.outcome == 'success' }}
 
+      - name: Update comment - step results
+        uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3
+        with:
+          repository: ${{ env.ISSUE_REPOSITORY }}
+          issue-number: ${{ env.ISSUE_NUMBER }}
+          comment-id: ${{ steps.find-last-comment.outputs.comment-id }}
+          body: ${{ steps.render-step-results.outputs.updated-text }}
+          edit-mode: replace
+
       - name: Fail job if not all checks passed
         if: contains(steps.*.outcome, 'failure')
         run: exit 1
 
   post_next_step_content:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
+      actions: write # Manage the next exercise workflow.
     name: Post next step content
     needs: [find_exercise, check_step_work]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       ISSUE_REPOSITORY: ${{ github.repository }}
       ISSUE_NUMBER: ${{ needs.find_exercise.outputs.issue-number }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Get response templates
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - name: Get response templates
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
           repository: skills/exercise-toolkit
           path: exercise-toolkit
-          ref: v0.7.0
+          ref: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1 # exercise-toolkit v0.9.3
 
       - name: Create comment - step finished
-        uses: GrantBirki/comment@v2.1.1
+        uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3
         with:
           repository: ${{ env.ISSUE_REPOSITORY }}
           issue-number: ${{ env.ISSUE_NUMBER }}
@@ -140,14 +157,14 @@ jobs:
             next_step_number: 4
 
       - name: Create comment - add step content
-        uses: GrantBirki/comment@v2.1.1
+        uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3
         with:
           repository: ${{ env.ISSUE_REPOSITORY }}
           issue-number: ${{ env.ISSUE_NUMBER }}
           file: ${{ env.STEP_4_FILE }}
 
       - name: Create comment - watching for progress
-        uses: GrantBirki/comment@v2.1.1
+        uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3
         with:
           repository: ${{ env.ISSUE_REPOSITORY }}
           issue-number: ${{ env.ISSUE_NUMBER }}
