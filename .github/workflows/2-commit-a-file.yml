@@ -5,9 +5,6 @@ name: Step 2 # Commit a file
 
 on:
   push:
-    permissions:
-      contents: read # Read lesson content.
-      issues: write # Publish lesson feedback.
     branches:
       - "my-first-branch"
     paths:

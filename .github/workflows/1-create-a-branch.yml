@@ -7,9 +7,6 @@ name: Step 1 # Create a branch
 
 on:
   push:
-    permissions:
-      contents: read # Read lesson content.
-      issues: write # Publish lesson feedback.
     branches:
       - "my-first-branch"
 

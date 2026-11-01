@@ -2,9 +2,6 @@ name: Step 0 # Start Exercise
 
 on:
   push:
-    permissions:
-      contents: read # Read lesson content.
-      issues: write # Publish lesson feedback.
     branches:
       - main
 

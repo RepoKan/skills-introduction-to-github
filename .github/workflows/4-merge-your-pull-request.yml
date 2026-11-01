@@ -6,9 +6,6 @@ name: Step 4 # Merge your pull request
 
 on:
   pull_request:
-    permissions:
-      contents: read # Read lesson content.
-      issues: write # Publish lesson feedback.
     branches:
       - main
     types:
