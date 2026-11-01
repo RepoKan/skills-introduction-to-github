@@ -1,6 +1,7 @@
 # Adapted from skills/exercise-toolkit v0.8.1: .github/workflows/start-exercise.yml
 # MIT license: .github/vendor/exercise-toolkit-LICENSE
-# Runtime and runner maintenance only; template revision and lesson interface retained.
+# Maintained action runtimes, runners, job permissions and failure ordering.
+# Nunjucks templates pinned to toolkit v0.9.3; practical checks and lesson interface retained.
 name: Start Exercise
 
 on:
@@ -27,22 +28,23 @@ on:
         description: "Number of the created issue"
         value: ${{ jobs.create_exercise.outputs.issue-number }}
 
-permissions:
-  contents: write # Update Readme
-  actions: write # Disable workflows
-  issues: write # Create issue
+permissions: {}
 
 env:
-  EXERCISE_TOOLKIT_REF: 769391b9f9a2f69a9df9bb92b677c5e0922213ac
+  EXERCISE_TOOLKIT_REF: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1
 
 jobs:
   disable_workflows:
+    permissions:
+      contents: read # List exercise workflow files.
+      actions: write # Disable the exercise workflows.
     name: Disable exercise workflows
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v6
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Disable all exercise workflows
         run: |
           # Find all workflow files that start with a number (0-9)
@@ -50,12 +52,28 @@ jobs:
           for workflow in $workflows; do
             workflow_name="$(basename "$workflow")"
             echo "Disabling workflow: $workflow_name"
-            gh workflow disable "$workflow_name" || true
+            state="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_name" --jq '.state')"
+            case "$state" in
+              active)
+                gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_name/disable"
+                ;;
+              disabled_*)
+                echo "Workflow already disabled: $workflow_name"
+                ;;
+              *)
+                echo "Unexpected workflow state: $state" >&2
+                exit 1
+                ;;
+            esac
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   create_exercise:
+    needs: disable_workflows
+    permissions:
+      contents: write # Update the exercise README.
+      issues: write # Create the exercise issue.
     name: Create exercise issue and update README
     runs-on: ubuntu-24.04
 
@@ -66,9 +84,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true # Required only for the following README commit and push.
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: true # Required only for the following README commit and push.
           repository: skills/exercise-toolkit
           path: exercise-toolkit
           ref: ${{ env.EXERCISE_TOOLKIT_REF }}

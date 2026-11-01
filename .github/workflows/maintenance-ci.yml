@@ -27,7 +27,7 @@ jobs:
           for path in Path(".github/workflows").glob("*.yml"):
               text = path.read_text()
               assert "ubuntu-" + "latest" not in text, path
-              for ref in re.findall(r"^\s*uses:\s*(\S+)", text, re.M):
+              for ref in re.findall(r"^\s*(?:-\s*)?uses:\s*(\S+)", text, re.M):
                   if ref.startswith("./"):
                       assert Path(ref[2:]).is_file(), (path, ref)
                   else:
@@ -48,16 +48,63 @@ jobs:
           text: "Runtime compatibility smoke test"
           keyphrase: "compatibility"
           minimum-occurrences: 1
-      - name: Smoke test nested template variables
-        id: render
+      - name: Checkout the lesson templates
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: skills/exercise-toolkit
+          ref: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1 # v0.9.3
+          path: exercise-toolkit
+          persist-credentials: false
+      - name: Render actual passing results
+        id: pass
         uses: skills/action-text-variables@d277ce34621ab00a53db0517d18304a7032453c5 # v4.0.1
         with:
-          template-text: "{% for row in results_table %}{{ row.description }}={{ row.passed }}{% endfor %}"
+          template-file: exercise-toolkit/markdown-templates/step-feedback/step-results-table.md
           template-vars: |
+            step_number: 1
             results_table:
               - description: runtime
                 passed: true
-      - name: Verify rendered template
+      - name: Render actual failing results
+        id: fail
+        uses: skills/action-text-variables@d277ce34621ab00a53db0517d18304a7032453c5 # v4.0.1
+        with:
+          template-file: exercise-toolkit/markdown-templates/step-feedback/step-results-table.md
+          template-vars: |
+            step_number: 1
+            results_table:
+              - description: runtime
+                passed: false
+      - name: Render actual started README
+        id: started
+        uses: skills/action-text-variables@d277ce34621ab00a53db0517d18304a7032453c5 # v4.0.1
+        with:
+          template-file: exercise-toolkit/markdown-templates/readme/exercise-started.md
+          template-vars: |
+            title: Runtime smoke test
+            login: learner
+            issue_url: https://github.com/${{ github.repository }}/issues/1
+      - name: Render actual completed README
+        id: finished
+        uses: skills/action-text-variables@d277ce34621ab00a53db0517d18304a7032453c5 # v4.0.1
+        with:
+          template-file: exercise-toolkit/markdown-templates/readme/exercise-finished.md
+          template-vars: |
+            login: learner
+            exercise_title: Runtime smoke test
+            repository_url: https://github.com/${{ github.repository }}
+            issue_url: https://github.com/${{ github.repository }}/issues/1
+      - name: Verify actual rendered templates
         env:
-          RENDERED: ${{ steps.render.outputs.updated-text }}
-        run: test "$RENDERED" = "runtime=true"
+          PASS_RESULT: ${{ steps.pass.outputs.updated-text }}
+          FAIL_RESULT: ${{ steps.fail.outputs.updated-text }}
+          STARTED_README: ${{ steps.started.outputs.updated-text }}
+          FINISHED_README: ${{ steps.finished.outputs.updated-text }}
+          ISSUE_URL: https://github.com/${{ github.repository }}/issues/1
+        run: |
+          [[ "$PASS_RESULT" == *"Step 1 - Passed"* ]]
+          [[ "$PASS_RESULT" == *"✅ - Pass | runtime"* ]]
+          [[ "$FAIL_RESULT" == *"Step 1 - Fail"* ]]
+          [[ "$FAIL_RESULT" == *"❌ - Fail | runtime"* ]]
+          [[ "$STARTED_README" == *"$ISSUE_URL"* ]]
+          [[ "$FINISHED_README" == *"$ISSUE_URL"* ]]

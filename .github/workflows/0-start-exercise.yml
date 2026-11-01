@@ -2,19 +2,24 @@ name: Step 0 # Start Exercise
 
 on:
   push:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
     branches:
       - main
 
 permissions:
-  contents: write # Update Readme
-  actions: write # Disable/enable workflows
-  issues: write # Create issue and comment on issues
+  contents: read # Default checkout access; writes are scoped per job.
 
 env:
   STEP_1_FILE: ".github/steps/1-create-a-branch.md"
 
 jobs:
   start_exercise:
+    permissions:
+      contents: write # Allow the reusable start job to update README.
+      actions: write # Allow disabling exercise workflows.
+      issues: write # Allow creating the exercise issue.
     if: |
       !github.event.repository.is_template
     name: Start Exercise
@@ -24,6 +29,10 @@ jobs:
       intro-message: "If you are new to GitHub, you might find your fellow developers use ___**issues**___  to organize their work and collaborate. We will do the same! That's another lesson, but today, we will introduce you to the basics."
 
   post_next_step_content:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
+      actions: write # Manage the next exercise workflow.
     name: Post next step content
     runs-on: ubuntu-24.04
     needs: [start_exercise]
@@ -35,14 +44,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: main
 
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: skills/exercise-toolkit
           path: exercise-toolkit
-          ref: v0.7.0
+          ref: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1 # exercise-toolkit v0.9.3
 
       - name: Create comment - add step content
         uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3

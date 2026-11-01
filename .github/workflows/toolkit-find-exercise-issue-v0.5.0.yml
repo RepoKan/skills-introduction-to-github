@@ -1,6 +1,7 @@
 # Adapted from skills/exercise-toolkit v0.5.0: .github/workflows/find-exercise-issue.yml
 # MIT license: .github/vendor/exercise-toolkit-LICENSE
-# Runtime and runner maintenance only; template revision and lesson interface retained.
+# Maintained action runtimes, runners, job permissions and failure ordering.
+# Nunjucks templates pinned to toolkit v0.9.3; practical checks and lesson interface retained.
 name: Find Exercise Issue
 
 on:
@@ -19,11 +20,12 @@ on:
         description: "Number of the found issue"
         value: ${{ jobs.find_exercise.outputs.issue-number }}
 
-permissions:
-  issues: read
+permissions: {}
 
 jobs:
   find_exercise:
+    permissions:
+      issues: read # Find the exercise issue.
     name: Find exercise by issue title
     runs-on: ubuntu-24.04
 

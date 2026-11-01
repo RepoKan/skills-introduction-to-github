@@ -6,25 +6,32 @@ name: Step 4 # Merge your pull request
 
 on:
   pull_request:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
     branches:
       - main
     types:
       - closed
 
 permissions:
-  contents: write
-  actions: write
-  issues: write
+  contents: read # Default checkout access; writes are scoped per job.
 
 env:
   REVIEW_FILE: ".github/steps/x-review.md"
 
 jobs:
   find_exercise:
+    permissions:
+      issues: read # Find the exercise issue.
     name: Find Exercise Issue
     uses: ./.github/workflows/toolkit-find-exercise-issue-v0.5.0.yml
 
   post_review_content:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
+      actions: write # Manage the next exercise workflow.
     name: Post review content
     needs: [find_exercise]
     runs-on: ubuntu-24.04
@@ -37,12 +44,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: skills/exercise-toolkit
           path: exercise-toolkit
-          ref: v0.7.0
+          ref: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1 # exercise-toolkit v0.9.3
 
       - name: Create comment - step finished
         uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3
@@ -64,6 +74,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   finish_exercise:
+    permissions:
+      contents: write # Allow the reusable finish job to update README.
+      issues: write # Allow closing the exercise issue.
     name: Finish Exercise
     needs: [find_exercise, post_review_content]
     uses: ./.github/workflows/toolkit-finish-exercise-v0.7.0.yml

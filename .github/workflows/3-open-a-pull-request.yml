@@ -7,6 +7,9 @@ name: Step 3 # Open a pull request
 
 on:
   pull_request:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
     branches:
       - main
     types:
@@ -16,15 +19,15 @@ on:
       - edited
 
 permissions:
-  contents: read
-  actions: write
-  issues: write
+  contents: read # Default checkout access; writes are scoped per job.
 
 env:
   STEP_4_FILE: ".github/steps/4-merge-your-pull-request.md"
 
 jobs:
   find_exercise:
+    permissions:
+      issues: read # Find the exercise issue.
     if: |
       !github.event.repository.is_template &&
       github.head_ref == 'my-first-branch'
@@ -32,6 +35,9 @@ jobs:
     uses: ./.github/workflows/toolkit-find-exercise-issue-v0.7.0.yml
 
   check_step_work:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
     name: Check step work
     runs-on: ubuntu-24.04
     needs: find_exercise
@@ -42,12 +48,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: skills/exercise-toolkit
           path: exercise-toolkit
-          ref: v0.7.0
+          ref: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1 # exercise-toolkit v0.9.3
 
       - name: Find last comment
         id: find-last-comment
@@ -117,6 +126,10 @@ jobs:
         run: exit 1
 
   post_next_step_content:
+    permissions:
+      contents: read # Read lesson content.
+      issues: write # Publish lesson feedback.
+      actions: write # Manage the next exercise workflow.
     name: Post next step content
     needs: [find_exercise, check_step_work]
     runs-on: ubuntu-24.04
@@ -127,12 +140,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: skills/exercise-toolkit
           path: exercise-toolkit
-          ref: v0.7.0
+          ref: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1 # exercise-toolkit v0.9.3
 
       - name: Create comment - step finished
         uses: GrantBirki/comment@937820f3623fd0e300294bcc64ac7577fc0ad4cc # v3.0.3

@@ -1,6 +1,7 @@
 # Adapted from skills/exercise-toolkit v0.7.0: .github/workflows/finish-exercise.yml
 # MIT license: .github/vendor/exercise-toolkit-LICENSE
-# Runtime and runner maintenance only; template revision and lesson interface retained.
+# Maintained action runtimes, runners, job permissions and failure ordering.
+# Nunjucks templates pinned to toolkit v0.9.3; practical checks and lesson interface retained.
 name: Finish Exercise Workflow
 
 on:
@@ -20,15 +21,15 @@ on:
         type: boolean
         default: true
 
-permissions:
-  contents: write
-  issues: write
+permissions: {}
 
 env:
-  EXERCISE_TOOLKIT_REF: f0b137c9e640394c4744289cc62d99e3390e2a1d
+  EXERCISE_TOOLKIT_REF: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1
 
 jobs:
   update_readme:
+    permissions:
+      contents: write # Commit the completed exercise README.
     name: Update README with congratulations
     runs-on: ubuntu-24.04
     if: inputs.update-readme-with-congratulations
@@ -37,11 +38,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: true # Required only for the following README commit and push.
           ref: ${{ github.event.repository.default_branch }}
 
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: true # Required only for the following README commit and push.
           repository: skills/exercise-toolkit
           path: exercise-toolkit
           ref: ${{ env.EXERCISE_TOOLKIT_REF }}
@@ -70,6 +73,11 @@ jobs:
           default_author: github_actions
 
   finish_issue:
+    needs: update_readme
+    if: ${{ !cancelled() && (needs.update_readme.result == 'success' || (!inputs.update-readme-with-congratulations && needs.update_readme.result == 'skipped')) }}
+    permissions:
+      contents: read # Read completion templates.
+      issues: write # Comment and close the exercise issue.
     name: Comment and close issue
     runs-on: ubuntu-24.04
 
@@ -77,6 +85,7 @@ jobs:
       - name: Get response templates
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: skills/exercise-toolkit
           path: exercise-toolkit
           ref: ${{ env.EXERCISE_TOOLKIT_REF }}
@@ -89,6 +98,7 @@ jobs:
           template-vars: |
             login: ${{ github.actor }}
             repo_full_name: ${{ github.repository }}
+            readme_updated: ${{ inputs.update-readme-with-congratulations }}
       - name: Create comment - exercise finished
         run: |
           gh issue comment "$ISSUE_URL" --body "$ISSUE_BODY"
