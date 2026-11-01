@@ -45,8 +45,8 @@ jobs:
       - name: Smoke test lesson keyphrase action
         uses: skills/action-keyphrase-checker@4771c016e1a66082db6bff148136b82689f7bd84 # v2.0.0
         with:
-          text-file: PROFILE.md
-          keyphrase: "#"
+          text: "Runtime compatibility smoke test"
+          keyphrase: "compatibility"
           minimum-occurrences: 1
       - name: Smoke test nested template variables
         id: render
