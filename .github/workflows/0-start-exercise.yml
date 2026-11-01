@@ -66,8 +66,10 @@ jobs:
           issue-number: ${{ env.ISSUE_NUMBER }}
           file: exercise-toolkit/markdown-templates/step-feedback/watching-for-progress.md
 
-      - name: Disable current workflow and enable next one
+      - name: Enable next step and finish setup
         run: |
           gh workflow enable "Step 1"
+          # Disable the entry point only after every setup step succeeded.
+          gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/0-start-exercise.yml/disable"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
