@@ -1,0 +1,63 @@
+name: Workflow maintenance
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout reviewed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint all workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -color
+      - name: Check runtime and runner policy
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          known = {"actions/checkout":"3d3c42e5aac5ba805825da76410c181273ba90b1","actions/github-script":"3a2844b7e9c422d3c10d287c895573f7108da1b3","GrantBirki/comment":"937820f3623fd0e300294bcc64ac7577fc0ad4cc","peter-evans/find-comment":"b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad","skills/action-keyphrase-checker":"4771c016e1a66082db6bff148136b82689f7bd84","skills/action-text-variables":"d277ce34621ab00a53db0517d18304a7032453c5","EndBug/add-and-commit":"cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8"}
+          for path in Path(".github/workflows").glob("*.yml"):
+              text = path.read_text()
+              assert "ubuntu-" + "latest" not in text, path
+              for ref in re.findall(r"^\s*uses:\s*(\S+)", text, re.M):
+                  if ref.startswith("./"):
+                      assert Path(ref[2:]).is_file(), (path, ref)
+                  else:
+                      action, sha = ref.rsplit("@", 1)
+                      assert known.get(action) == sha, (path, ref)
+          print("All workflow actions use verified Node.js 24 revisions; runners are pinned.")
+          PY
+      - name: Verify Node.js 24 execution
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            if (!process.version.startsWith('v24.')) {
+              core.setFailed('Expected the Node.js 24 action runtime');
+            }
+      - name: Smoke test lesson keyphrase action
+        uses: skills/action-keyphrase-checker@4771c016e1a66082db6bff148136b82689f7bd84 # v2.0.0
+        with:
+          text-file: PROFILE.md
+          keyphrase: "#"
+          minimum-occurrences: 1
+      - name: Smoke test nested template variables
+        id: render
+        uses: skills/action-text-variables@d277ce34621ab00a53db0517d18304a7032453c5 # v4.0.1
+        with:
+          template-text: "{% for row in results_table %}{{ row.description }}={{ row.passed }}{% endfor %}"
+          template-vars: |
+            results_table:
+              - description: runtime
+                passed: true
+      - name: Verify rendered template
+        env:
+          RENDERED: ${{ steps.render.outputs.updated-text }}
+        run: test "$RENDERED" = "runtime=true"
