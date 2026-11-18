@@ -1,9 +1,16 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 # RepoKan public repositories: CodeRabbit may approve low-risk PRs only.
 # AI approval does not replace independent human review, required CI, or owner approval to merge.
+language: en-US
 reviews:
+  profile: assertive
+  review_status: true
+  review_progress: true
+  commit_status: true
+  fail_commit_status: true
   auto_review:
     enabled: true
+    drafts: false
   auto_approvals:
     enabled: true
     allow_author_approval: false
@@ -19,3 +26,10 @@ reviews:
           - "CODEOWNERS"
           - "docs/CODEOWNERS"
           - ".coderabbit.config.ts"
+  path_instructions:
+    - path: ".github/**"
+      instructions: |
+        Preserve the completed GitHub Skills lesson, exact exercise branches,
+        practical checks, and file paths. Check direct and transitive action
+        runtimes, pinned runners, least privilege, and reusable workflow inputs.
+        Do not hide warnings or treat skipped/cancelled reviews as passed.

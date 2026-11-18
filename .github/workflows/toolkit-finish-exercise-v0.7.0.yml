@@ -1,0 +1,114 @@
+# Adapted from skills/exercise-toolkit v0.7.0: .github/workflows/finish-exercise.yml
+# MIT license: .github/vendor/exercise-toolkit-LICENSE
+# Maintained action runtimes, runners, job permissions and failure ordering.
+# Nunjucks templates pinned to toolkit v0.9.3; practical checks and lesson interface retained.
+name: Finish Exercise Workflow
+
+on:
+  workflow_call:
+    inputs:
+      issue-url:
+        description: "The URL of the issue to update and close"
+        required: true
+        type: string
+      exercise-title:
+        description: "The title of the exercise"
+        required: false
+        type: string
+      update-readme-with-congratulations:
+        description: "Whether to update the README with a congratulations message"
+        required: false
+        type: boolean
+        default: true
+
+permissions: {}
+
+env:
+  EXERCISE_TOOLKIT_REF: 904f29a5aa21fb6ccd0ecbbd5e7b668fd92b9ff1
+
+jobs:
+  update_readme:
+    permissions:
+      contents: write # Commit the completed exercise README.
+    name: Update README with congratulations
+    runs-on: ubuntu-24.04
+    if: inputs.update-readme-with-congratulations
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true # Required only for the following README commit and push.
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Get response templates
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Read-only templates never need push credentials.
+          repository: skills/exercise-toolkit
+          path: exercise-toolkit
+          ref: ${{ env.EXERCISE_TOOLKIT_REF }}
+
+      - name: Build congratulations message from template
+        id: build-new-readme
+        uses: skills/action-text-variables@d277ce34621ab00a53db0517d18304a7032453c5 # v4.0.1
+        with:
+          template-file: exercise-toolkit/markdown-templates/readme/exercise-finished.md
+          template-vars: |
+            login: ${{ github.actor }}
+            issue_url: ${{ toJSON(inputs.issue-url) }}
+            exercise_title: ${{ toJSON(inputs.exercise-title) }}
+            repository_url: https://github.com/${{ github.repository }}
+
+      - name: Overwrite README
+        env:
+          README_TEXT: ${{ steps.build-new-readme.outputs.updated-text }}
+        run: echo "$README_TEXT" > README.md
+
+      - name: Update README - congratulations
+        uses: EndBug/add-and-commit@cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8 # v11.1.1
+        with:
+          add: "README.md"
+          message: "Congratulations!🎉"
+          default_author: github_actions
+
+  finish_issue:
+    needs: update_readme
+    if: ${{ !cancelled() && (needs.update_readme.result == 'success' || (!inputs.update-readme-with-congratulations && needs.update_readme.result == 'skipped')) }}
+    permissions:
+      contents: read # Read completion templates.
+      issues: write # Comment and close the exercise issue.
+    name: Comment and close issue
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Get response templates
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: skills/exercise-toolkit
+          path: exercise-toolkit
+          ref: ${{ env.EXERCISE_TOOLKIT_REF }}
+
+      - name: Build message - exercise finished
+        id: build-finish-message
+        uses: skills/action-text-variables@d277ce34621ab00a53db0517d18304a7032453c5 # v4.0.1
+        with:
+          template-file: exercise-toolkit/markdown-templates/step-feedback/exercise-finished.md
+          template-vars: |
+            login: ${{ github.actor }}
+            repo_full_name: ${{ github.repository }}
+            readme_updated: ${{ inputs.update-readme-with-congratulations }}
+      - name: Create comment - exercise finished
+        run: |
+          gh issue comment "$ISSUE_URL" --body "$ISSUE_BODY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_URL: ${{ inputs.issue-url }}
+          ISSUE_BODY: ${{ steps.build-finish-message.outputs.updated-text }}
+
+      - name: Close issue
+        run: gh issue close "$ISSUE_URL"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_URL: ${{ inputs.issue-url }}
